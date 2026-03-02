@@ -54,6 +54,16 @@ button {
 }
 .player { background:gold; color:black; }
 .enemy { background:crimson; }
+.action-btns {
+    position:absolute;
+    top:-60px;
+    display:flex;
+    gap:5px;
+}
+.action-btns button {
+    padding:4px 6px;
+    font-size:10px;
+}
 </style>
 </head>
 <body>
@@ -77,6 +87,7 @@ let turn = 1;
 const map = document.getElementById("map");
 const log = document.getElementById("log");
 let kingdoms = [];
+let currentActionButtons = null;
 
 // Generate random map with kingdoms
 function generateMap() {
@@ -106,13 +117,19 @@ function drawMap(){
             div.style.boxShadow = "0 0 12px 3px yellow";
         }
 
-        div.onclick = () => selectKingdom(k);
+        div.onclick = () => handleKingdomClick(k, div);
         map.appendChild(div);
     });
 }
 
-// Player selects a kingdom or attacks an enemy
-function selectKingdom(k){
+// Handle click on a kingdom
+function handleKingdomClick(k, div){
+    // Remove old buttons
+    if(currentActionButtons){
+        currentActionButtons.remove();
+        currentActionButtons = null;
+    }
+
     if(k.owner==="player"){
         if(selectedKingdoms.includes(k)){
             selectedKingdoms = selectedKingdoms.filter(kk => kk !== k);
@@ -124,7 +141,30 @@ function selectKingdom(k){
         drawMap();
     }
     else if(k.owner==="enemy" && selectedKingdoms.length > 0){
-        attackSingleTurn(selectedKingdoms, k);
+        // Show action buttons for this enemy
+        const btnContainer = document.createElement("div");
+        btnContainer.className = "action-btns";
+
+        const attackBtn = document.createElement("button");
+        attackBtn.innerText = "Attack";
+        attackBtn.onclick = (e)=>{
+            e.stopPropagation();
+            attackSingleTurn(selectedKingdoms, k);
+            btnContainer.remove();
+        }
+
+        const allianceBtn = document.createElement("button");
+        allianceBtn.innerText = "Alliance";
+        allianceBtn.onclick = (e)=>{
+            e.stopPropagation();
+            requestAlliance(k);
+            btnContainer.remove();
+        }
+
+        btnContainer.appendChild(attackBtn);
+        btnContainer.appendChild(allianceBtn);
+        div.appendChild(btnContainer);
+        currentActionButtons = btnContainer;
     }
 }
 
@@ -162,11 +202,24 @@ function attackSingleTurn(attackerKingdoms, defender){
     drawMap();
     checkWin();
 
-    // After player attack, enemy attacks once
     enemyTurn();
 }
 
-// AI attacks once
+// Player requests alliance with enemy kingdom
+function requestAlliance(enemyKingdom){
+    let chance = Math.random();
+    if(chance <= 0.25){ // 25% chance success
+        enemyKingdom.owner = "player";
+        addLog("🤝 Alliance successful! Kingdom joined you.");
+    } else {
+        addLog("❌ Alliance rejected! Kingdom remains enemy.");
+    }
+
+    drawMap();
+    enemyTurn();
+}
+
+// AI attacks once (less powerful)
 function enemyTurn(){
     let enemies = kingdoms.filter(k=>k.owner==="enemy");
     let players = kingdoms.filter(k=>k.owner==="player");
@@ -175,12 +228,16 @@ function enemyTurn(){
     let enemy = enemies[Math.floor(Math.random()*enemies.length)];
     let target = players[Math.floor(Math.random()*players.length)];
 
-    let attackPower = enemy.troops*(Math.random()*0.4+0.8);
-    let defendPower = target.troops*(Math.random()*0.4+0.8);
+    // AI weaker multipliers
+    let attackPower = enemy.troops * (Math.random()*0.3 + 0.8); // 0.8-1.1
+    let defendPower = target.troops * (Math.random()*0.5 + 0.75); // 0.75-1.25
+
+    let successChance = 0.4 + (attackPower - defendPower)/100; // base 40%
+    successChance = Math.min(Math.max(successChance,0.1),0.8); // clamp 10%-80%
 
     addLog("💀 Enemy attacks your kingdom!");
 
-    if(attackPower > defendPower){
+    if(Math.random() < successChance){
         enemy.troops = Math.floor(enemy.troops*0.6);
         target.owner = "enemy";
         target.troops = Math.floor(enemy.troops*0.8);
