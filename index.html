@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Iron Crown 👑 - Stronger AI</title>
+<title>Iron Crown 👑 - AI Attacks Everyone</title>
 <style>
   body {
     margin: 0;
@@ -150,7 +150,6 @@ function drawArrows(){
     let angle = Math.atan2(a.toY - a.fromY, a.toX - a.fromX);
     let headlen = 10;
 
-    // Left
     ctx.beginPath();
     ctx.moveTo(a.toX+25, a.toY+25);
     ctx.lineTo(a.toX+25 - headlen * Math.cos(angle - Math.PI/6), 
@@ -158,7 +157,6 @@ function drawArrows(){
     ctx.strokeStyle = a.type==='ai' ? 'orange' : 'white';
     ctx.stroke();
 
-    // Right
     ctx.beginPath();
     ctx.moveTo(a.toX+25, a.toY+25);
     ctx.lineTo(a.toX+25 - headlen * Math.cos(angle + Math.PI/6), 
@@ -275,19 +273,19 @@ function attackKingdom(k){
   if(attacksThisTurn>=2) endTurn();
 }
 
-// AI attacks smarter and immediately
+// AI attacks anyone who is not itself
 function aiTurn(){
   const aiKingdoms = kingdoms.filter(k=>k.owner==='enemy');
-  let playerKingdoms = kingdoms.filter(k=>k.owner==='player');
-  if(aiKingdoms.length===0 || playerKingdoms.length===0) return;
+  let possibleTargets = kingdoms.filter(k => k.owner !== 'enemy' && k.troops > 0);
+  if(aiKingdoms.length===0 || possibleTargets.length===0) return;
 
   let attacks = 0;
   const maxAttacks = 2;
 
-  while(attacks < maxAttacks && playerKingdoms.length>0){
+  while(attacks < maxAttacks && possibleTargets.length > 0){
     const attacker = aiKingdoms[getRandomInt(0, aiKingdoms.length-1)];
-    playerKingdoms.sort((a,b)=>a.troops - b.troops); // weakest first
-    const target = playerKingdoms[0];
+    possibleTargets.sort((a,b)=>a.troops - b.troops); // weakest first
+    const target = possibleTargets[0];
 
     arrows.push({fromX: attacker.x, fromY: attacker.y, toX: target.x, toY: target.y, type:'ai'});
     drawArrows();
@@ -295,17 +293,18 @@ function aiTurn(){
 
     const successChance = attacker.troops / (attacker.troops + target.troops);
     if(Math.random() < successChance){
+      const conquered = target.troops;
       target.owner='enemy';
-      log(`AI conquered your kingdom ${target.id} (AI troops: ${attacker.troops}, Your troops: ${target.troops})`);
-      playerKingdoms.splice(0,1);
+      log(`AI conquered kingdom ${target.id} (AI troops: ${attacker.troops}, Target troops: ${conquered})`);
+      possibleTargets.shift();
     } else {
-      log(`AI attack failed on your kingdom ${target.id} (AI troops: ${attacker.troops}, Your troops: ${target.troops})`);
+      log(`AI attack failed on kingdom ${target.id} (AI troops: ${attacker.troops}, Target troops: ${target.troops})`);
     }
     attacks++;
   }
 }
 
-// End turn and immediately trigger AI
+// End turn and trigger AI
 function endTurn(){
   attacksThisTurn=0;
   allianceRequested=false;
