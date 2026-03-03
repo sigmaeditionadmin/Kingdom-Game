@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Iron Crown 👑 - AI Damage & Arrowheads</title>
+<title>Iron Crown 👑 - Click Stats Added</title>
 <style>
   body {
     margin: 0;
@@ -73,7 +72,10 @@
 <div id="gameContainer">
   <canvas id="arrowCanvas"></canvas>
 </div>
-<div id="statsBar"><h3>Stats</h3><div id="statsContent"></div></div>
+<div id="statsBar">
+  <h3>Stats</h3>
+  <div id="statsContent">Click a kingdom</div>
+</div>
 
 <script>
 const battleLog = document.getElementById('battleLog');
@@ -86,14 +88,6 @@ let containerWidth = window.innerWidth - 500;
 let containerHeight = window.innerHeight;
 arrowCanvas.width = containerWidth;
 arrowCanvas.height = containerHeight;
-
-window.addEventListener('resize', () => {
-  containerWidth = window.innerWidth - 500;
-  containerHeight = window.innerHeight;
-  arrowCanvas.width = containerWidth;
-  arrowCanvas.height = containerHeight;
-  renderKingdoms();
-});
 
 function getRandomInt(min,max){return Math.floor(Math.random()*(max-min+1)+min);}
 function log(message){
@@ -109,7 +103,6 @@ let maxAlliances = 2;
 let allianceRequested = false;
 let arrows = [];
 
-// Place kingdom avoiding overlap
 function placeKingdom(occupied){
   let x,y,valid=false;
   while(!valid){
@@ -123,7 +116,6 @@ function placeKingdom(occupied){
   return {x,y};
 }
 
-// Generate 12 kingdoms
 for(let i=1;i<=12;i++){
   let owner = i===1 ? 'player' : 'enemy';
   let pos = placeKingdom(kingdoms);
@@ -137,11 +129,9 @@ for(let i=1;i<=12;i++){
   });
 }
 
-// Draw arrows with arrowhead
 function drawArrows(){
   ctx.clearRect(0,0,arrowCanvas.width,arrowCanvas.height);
   arrows.forEach(a=>{
-    // main line
     ctx.beginPath();
     ctx.moveTo(a.fromX+25, a.fromY+25);
     ctx.lineTo(a.toX+25, a.toY+25);
@@ -149,7 +139,6 @@ function drawArrows(){
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    // arrowhead triangle
     let angle = Math.atan2(a.toY - a.fromY, a.toX - a.fromX);
     let headlen = 12;
     ctx.beginPath();
@@ -164,17 +153,12 @@ function drawArrows(){
   });
 }
 
-function updateStats(){
-  let playerTroops = kingdoms.filter(k=>k.owner==='player').reduce((a,k)=>a+k.troops,0);
-  let allyTroops = kingdoms.filter(k=>k.owner==='ally').reduce((a,k)=>a+k.troops,0);
-  let enemyTroops = kingdoms.filter(k=>k.owner==='enemy').reduce((a,k)=>a+k.troops,0);
-  let totalPlayer = kingdoms.filter(k=>k.owner==='player').length;
-  let totalAllies = kingdoms.filter(k=>k.owner==='ally').length;
-  let totalEnemies = kingdoms.filter(k=>k.owner==='enemy').length;
+function showKingdomStats(k){
   statsContent.innerHTML = `
-    Player Troops: ${playerTroops} (${totalPlayer} kingdoms)<br>
-    Ally Troops: ${allyTroops} (${totalAllies} kingdoms)<br>
-    Enemy Troops: ${enemyTroops} (${totalEnemies} kingdoms)
+    <b>Kingdom:</b> ${k.id}<br>
+    <b>Owner:</b> ${k.owner}<br>
+    <b>Troops:</b> ${k.troops}<br>
+    <b>Alliances:</b> ${k.alliances}
   `;
 }
 
@@ -191,11 +175,13 @@ function renderKingdoms(){
     div.style.left = k.x+'px';
     div.style.top = k.y+'px';
     div.innerHTML = k.owner==='retreated' ? '🏰<br>0' : `🏰<br>${k.troops}`;
-    div.addEventListener('click', ()=>selectKingdom(k,div));
+    div.addEventListener('click', ()=>{
+      showKingdomStats(k);
+      selectKingdom(k,div);
+    });
     gameContainer.appendChild(div);
   });
   drawArrows();
-  updateStats();
 }
 
 function selectKingdom(k,element){
@@ -237,14 +223,13 @@ function retreatKingdom(k){
   home.troops += k.troops;
   k.troops = 0;
   k.owner = 'retreated';
-  log(`Kingdom ${k.id} retreated. Troops added to home kingdom ${home.id}.`);
+  log(`Kingdom ${k.id} retreated. Troops added to home kingdom.`);
   renderKingdoms();
 }
 
 function requestAlliance(k){
   allianceRequested = true;
-  const success = Math.random() < 0.5;
-  if(success){ k.owner='ally'; log(`Alliance successful with kingdom ${k.id}`); }
+  if(Math.random()<0.5){ k.owner='ally'; log(`Alliance successful with kingdom ${k.id}`); }
   else log(`Alliance request denied for kingdom ${k.id}`);
   renderKingdoms();
 }
@@ -252,6 +237,7 @@ function requestAlliance(k){
 function attackKingdom(k){
   const attackers = kingdoms.filter(kk=>kk.owner==='player'||kk.owner==='ally');
   const fromKingdom = attackers[0];
+
   arrows.push({fromX:fromKingdom.x, fromY:fromKingdom.y, toX:k.x, toY:k.y, type:'player'});
   drawArrows();
   setTimeout(()=>{ arrows.shift(); drawArrows(); },1500);
@@ -262,16 +248,16 @@ function attackKingdom(k){
   if(Math.random() < successChance){
     k.owner='player';
     k.troops = Math.max(10,getRandomInt(30,48));
-    log(`Attack successful! You conquered kingdom ${k.id} (Your troops: ${totalAttackers}, Enemy: ${k.troops})`);
+    log(`Attack successful! Conquered kingdom ${k.id}`);
   } else {
-    log(`Attack failed on kingdom ${k.id} (Your troops: ${totalAttackers}, Enemy: ${k.troops})`);
+    log(`Attack failed on kingdom ${k.id}`);
   }
+
   attacksThisTurn++;
   renderKingdoms();
   if(attacksThisTurn>=2) endTurn();
 }
 
-// AI attacks any non-AI kingdom and deals damage
 function aiTurn(){
   const aiKingdoms = kingdoms.filter(k=>k.owner==='enemy');
   let possibleTargets = kingdoms.filter(k=>k.owner !== 'enemy' && k.troops > 0);
@@ -282,14 +268,13 @@ function aiTurn(){
 
   while(attacks < maxAttacks && possibleTargets.length > 0){
     const attacker = aiKingdoms[getRandomInt(0, aiKingdoms.length-1)];
-    possibleTargets.sort((a,b)=>a.troops - b.troops); // weakest first
+    possibleTargets.sort((a,b)=>a.troops - b.troops);
     const target = possibleTargets[0];
 
     arrows.push({fromX: attacker.x, fromY: attacker.y, toX: target.x, toY: target.y, type:'ai'});
     drawArrows();
     setTimeout(()=>{ arrows.shift(); drawArrows(); },1500);
 
-    // Calculate damage
     const attackPower = Math.floor(attacker.troops * 0.5);
     const defendPower = Math.floor(target.troops * 0.3);
     target.troops -= attackPower;
@@ -298,29 +283,25 @@ function aiTurn(){
     if(target.troops <= 0){
       target.owner='enemy';
       target.troops = Math.max(5, Math.floor(attackPower * 0.7));
-      log(`AI conquered kingdom ${target.id} (Damage: ${attackPower})`);
+      log(`AI conquered kingdom ${target.id}`);
       possibleTargets.shift();
     } else {
-      log(`AI attacked kingdom ${target.id} (Damage: ${attackPower}, Target left: ${target.troops})`);
+      log(`AI attacked kingdom ${target.id}`);
     }
 
     attacks++;
   }
 }
 
-// End turn and trigger AI
 function endTurn(){
   attacksThisTurn=0;
   allianceRequested=false;
   log(`Turn ended. AI is taking its turn.`);
-  
   aiTurn();
-
   log('Your turn.');
   renderKingdoms();
 }
 
-// Initial render
 renderKingdoms();
 </script>
 </body>
