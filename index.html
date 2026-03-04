@@ -31,7 +31,7 @@ body {
     border-left: 2px solid #333;
     display: flex;
     flex-direction: column;
-    overflow-y: auto;   /* Entire panel scrolls */
+    overflow-y: auto;
     height: 100%;
 }
 
@@ -65,16 +65,16 @@ button:hover {
     border: 1px solid #333;
     margin-bottom: 15px;
     flex-shrink: 0;
-    max-height: unset;  /* removed fixed height */
-    overflow: unset;    /* removed scroll */
+    max-height: unset;
+    overflow: unset;
 }
 
 #log {
     background: black;
     padding: 8px;
     font-size: 12px;
-    height: auto;       /* auto grows */
-    overflow: unset;    /* removed scroll */
+    height: auto;
+    overflow: unset;
     border: 1px solid #333;
 }
 </style>
@@ -123,11 +123,11 @@ let map = L.map('map').setView([20,0], 2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 let countries = {
-    "United States of America": { owner: "player", infantry: 130000, tanks: 6000, planes: 800, ships: 200 },
-    "Russia": { owner: "ai", infantry: 115000, tanks: 5000, planes: 700, ships: 150 },
-    "China": { owner: "ai", infantry: 200000, tanks: 5500, planes: 900, ships: 180 },
-    "Iran": { owner: "ai", infantry: 57000, tanks: 1600, planes: 200, ships: 50 },
-    "North Korea": { owner: "ai", infantry: 120000, tanks: 4000, planes: 300, ships: 30 }
+    "United States of America": { owner: "player", infantry: 130000, tanks: 6000, planes: 800, ships: 200, coords:[38,-97] },
+    "Russia": { owner: "ai", infantry: 115000, tanks: 5000, planes: 700, ships: 150, coords:[60,100] },
+    "China": { owner: "ai", infantry: 200000, tanks: 5500, planes: 900, ships: 180, coords:[35,105] },
+    "Iran": { owner: "ai", infantry: 57000, tanks: 1600, planes: 200, ships: 50, coords:[32,53] },
+    "North Korea": { owner: "ai", infantry: 120000, tanks: 4000, planes: 300, ships: 30, coords:[40,127] }
 };
 
 let geoLayer;
@@ -206,6 +206,24 @@ function updateStats() {
     `;
 }
 
+// Function to animate a plane or ship moving
+function animateUnit(fromCoords, toCoords, iconColor, duration=2000) {
+    let marker = L.circleMarker(fromCoords, {radius: 6, color: iconColor}).addTo(map);
+    let steps = 50;
+    let step = 0;
+    let latStep = (toCoords[0]-fromCoords[0])/steps;
+    let lngStep = (toCoords[1]-fromCoords[1])/steps;
+
+    let interval = setInterval(() => {
+        step++;
+        marker.setLatLng([fromCoords[0]+latStep*step, fromCoords[1]+lngStep*step]);
+        if (step>=steps) {
+            clearInterval(interval);
+            map.removeLayer(marker);
+        }
+    }, duration/steps);
+}
+
 function launchAttack() {
     let attackerName = document.getElementById("attackerSelect").value;
     let targetName = document.getElementById("targetSelect").value;
@@ -225,28 +243,35 @@ function launchAttack() {
 
     attacker.infantry -= inf; attacker.tanks -= tanks; attacker.planes -= planes; attacker.ships -= ships;
 
-    let attackPower = inf + tanks*3 + planes*5 + ships*4 + Math.random()*50000;
-    let defendPower = defender.infantry + defender.tanks*3 + defender.planes*5 + defender.ships*4 + Math.random()*50000;
+    // Animate planes
+    for (let i=0;i<planes;i+=50) animateUnit(attacker.coords, defender.coords, 'yellow', 1500);
+    // Animate ships
+    for (let i=0;i<ships;i+=10) animateUnit(attacker.coords, defender.coords, 'blue', 2500);
 
-    if (attackPower > defendPower) {
-        log(attackerName + " captured " + targetName);
-        defender.owner = "player";
-        defender.infantry = Math.floor(inf/2);
-        defender.tanks = Math.floor(tanks/2);
-        defender.planes = Math.floor(planes/2);
-        defender.ships = Math.floor(ships/2);
-    } else {
-        log(attackerName + " failed attacking " + targetName);
-        defender.infantry -= Math.floor(inf/3);
-        defender.tanks -= Math.floor(tanks/3);
-        defender.planes -= Math.floor(planes/3);
-        defender.ships -= Math.floor(ships/3);
-        for (let key of ["infantry","tanks","planes","ships"]) if (defender[key]<0) defender[key]=0;
-    }
+    setTimeout(() => {
+        let attackPower = inf + tanks*3 + planes*5 + ships*4 + Math.random()*50000;
+        let defendPower = defender.infantry + defender.tanks*3 + defender.planes*5 + defender.ships*4 + Math.random()*50000;
 
-    populateDropdowns();
-    refreshMap();
-    updateStats();
+        if (attackPower > defendPower) {
+            log(attackerName + " captured " + targetName);
+            defender.owner = "player";
+            defender.infantry = Math.floor(inf/2);
+            defender.tanks = Math.floor(tanks/2);
+            defender.planes = Math.floor(planes/2);
+            defender.ships = Math.floor(ships/2);
+        } else {
+            log(attackerName + " failed attacking " + targetName);
+            defender.infantry -= Math.floor(inf/3);
+            defender.tanks -= Math.floor(tanks/3);
+            defender.planes -= Math.floor(planes/3);
+            defender.ships -= Math.floor(ships/3);
+            for (let key of ["infantry","tanks","planes","ships"]) if (defender[key]<0) defender[key]=0;
+        }
+
+        populateDropdowns();
+        refreshMap();
+        updateStats();
+    }, 2000); // Attack resolves after animation
 }
 
 populateDropdowns();
