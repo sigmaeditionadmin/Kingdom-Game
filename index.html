@@ -206,9 +206,19 @@ function updateStats() {
     `;
 }
 
+// Custom icons
+let planeIcon = L.icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/69/69524.png', // plane icon
+    iconSize: [20,20]
+});
+let shipIcon = L.icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/49/49186.png', // ship icon
+    iconSize: [20,20]
+});
+
 // Animate planes/ships
-function animateUnit(fromCoords, toCoords, color, duration=2000) {
-    let marker = L.circleMarker(fromCoords, {radius: 6, color: color}).addTo(map);
+function animateUnit(fromCoords, toCoords, type, duration=2000) {
+    let marker = L.marker(fromCoords, {icon: type==='plane'?planeIcon:shipIcon}).addTo(map);
     let steps = 50;
     let step = 0;
     let latStep = (toCoords[0]-fromCoords[0])/steps;
@@ -223,7 +233,7 @@ function animateUnit(fromCoords, toCoords, color, duration=2000) {
     }, duration/steps);
 }
 
-// General attack function
+// Attack resolution
 function resolveAttack(attackerName, targetName, inf, tanks, planes, ships) {
     let attacker = countries[attackerName];
     let defender = countries[targetName];
@@ -231,9 +241,8 @@ function resolveAttack(attackerName, targetName, inf, tanks, planes, ships) {
 
     attacker.infantry -= inf; attacker.tanks -= tanks; attacker.planes -= planes; attacker.ships -= ships;
 
-    // Animate planes and ships
-    for (let i=0;i<planes;i+=50) animateUnit(attacker.coords, defender.coords, 'yellow', 1500);
-    for (let i=0;i<ships;i+=10) animateUnit(attacker.coords, defender.coords, 'blue', 2500);
+    for (let i=0;i<planes;i+=50) animateUnit(attacker.coords, defender.coords, 'plane', 1500);
+    for (let i=0;i<ships;i+=10) animateUnit(attacker.coords, defender.coords, 'ship', 2500);
 
     return new Promise(resolve => {
         setTimeout(() => {
@@ -262,6 +271,7 @@ function resolveAttack(attackerName, targetName, inf, tanks, planes, ships) {
     });
 }
 
+// Main launch
 async function launchAttack() {
     let attackerName = document.getElementById("attackerSelect").value;
     let targetName = document.getElementById("targetSelect").value;
@@ -281,14 +291,13 @@ async function launchAttack() {
 
     await resolveAttack(attackerName, targetName, inf, tanks, planes, ships);
 
-    // AI turn
+    // AI attacks
     for (let aiName in countries) {
         let aiCountry = countries[aiName];
         if (aiCountry.owner === "ai") {
             let possibleTargets = Object.keys(countries).filter(n => n !== aiName);
             let target = possibleTargets[Math.floor(Math.random()*possibleTargets.length)];
             let t = countries[target];
-            // Send a portion of troops
             let aiInf = Math.floor(aiCountry.infantry*0.3);
             let aiTanks = Math.floor(aiCountry.tanks*0.3);
             let aiPlanes = Math.floor(aiCountry.planes*0.3);
