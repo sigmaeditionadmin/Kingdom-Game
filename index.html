@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Iron Crown 👑 - Fully Updated</title>
+<title>Iron Crown 👑 - Multi-Kingdom Attack</title>
 <style>
   body { margin:0; font-family:Arial,sans-serif; display:flex; height:100vh; }
   #battleLog { width:250px; background:#1e1e1e; color:#fff; padding:10px; overflow-y:auto; box-sizing:border-box; }
@@ -57,6 +57,7 @@ let attacksThisTurn = 0;
 let alliancesRequestedThisTurn = 0;
 let maxAlliances = 2;
 let arrows = [];
+let selectedKingdoms = [];
 
 function placeKingdom(occupied){
   let x,y,valid=false;
@@ -76,6 +77,7 @@ function initializeGame(){
   attacksThisTurn = 0;
   alliancesRequestedThisTurn = 0;
   arrows = [];
+  selectedKingdoms = [];
   for(let i=1;i<=12;i++){
     let owner = i===1 ? 'player' : 'enemy';
     let pos = placeKingdom(kingdoms);
@@ -93,7 +95,7 @@ function addArrow(fromX, fromY, toX, toY, type){
 function drawArrows(){
   ctx.clearRect(0,0,arrowCanvas.width,arrowCanvas.height);
   const now = Date.now();
-  arrows = arrows.filter(a => now - a.timestamp < 1500); // auto-remove after 1.5s
+  arrows = arrows.filter(a => now - a.timestamp < 1500);
 
   arrows.forEach(a => {
     let dx = a.toX - a.fromX;
@@ -149,22 +151,37 @@ function renderKingdoms(){
   drawArrows();
 }
 
-function selectKingdom(k,element){
+function selectKingdom(k, element){
   document.querySelectorAll('.actionButton').forEach(b=>b.remove());
 
   if(k.owner==='player'||k.owner==='ally'){
-    if(k.owner!=='retreated' && k.id!==1){
-      const retreatBtn = document.createElement('button');
-      retreatBtn.className='actionButton';
-      retreatBtn.style.left = k.x+'px';
-      retreatBtn.style.top = (k.y-60)+'px';
-      retreatBtn.textContent='Retreat Home';
-      retreatBtn.onclick = ()=>retreatKingdom(k);
-      gameContainer.appendChild(retreatBtn);
+    // Toggle selection
+    if(selectedKingdoms.includes(k)){
+      selectedKingdoms = selectedKingdoms.filter(kk=>kk!==k);
+      element.style.outline = '';
+    } else {
+      if(selectedKingdoms.length < 5){
+        selectedKingdoms.push(k);
+        element.style.outline = '3px solid yellow';
+      } else {
+        log('You can select up to 5 kingdoms for combined attack.');
+      }
     }
     return;
   }
 
+  // Enemy kingdom clicked: combined attack
+  if(selectedKingdoms.length > 0){
+    combinedAttack(k);
+    selectedKingdoms.forEach(kk=>{
+      const el = document.querySelector(`.kingdom:nth-child(${kingdoms.indexOf(kk)+1})`);
+      if(el) el.style.outline='';
+    });
+    selectedKingdoms = [];
+    return;
+  }
+
+  // Single-kingdom buttons if none selected
   if(alliancesRequestedThisTurn < maxAlliances){
     const allianceBtn = document.createElement('button');
     allianceBtn.className='actionButton';
@@ -172,7 +189,7 @@ function selectKingdom(k,element){
     allianceBtn.style.top = (k.y-30)+'px';
     allianceBtn.textContent='Alliance';
     allianceBtn.onclick = () => {
-      document.querySelectorAll('.actionButton').forEach(b => b.remove()); // remove immediately
+      document.querySelectorAll('.actionButton').forEach(b => b.remove());
       requestAlliance(k);
     };
     gameContainer.appendChild(allianceBtn);
@@ -184,10 +201,32 @@ function selectKingdom(k,element){
   attackBtn.style.top = (k.y-60)+'px';
   attackBtn.textContent='Attack';
   attackBtn.onclick = () => {
-    document.querySelectorAll('.actionButton').forEach(b => b.remove()); // remove immediately
+    document.querySelectorAll('.actionButton').forEach(b => b.remove());
     attackKingdom(k);
   };
   gameContainer.appendChild(attackBtn);
+}
+
+function combinedAttack(target){
+  const totalAttackers = selectedKingdoms.reduce((sum,k)=>sum+k.troops,0);
+
+  selectedKingdoms.forEach(k=>{
+    addArrow(k.x, k.y, target.x, target.y, 'player');
+    k.troops = 0;
+  });
+
+  const successChance = totalAttackers / (totalAttackers + target.troops) * Math.random();
+  if(Math.random() < successChance){
+    target.owner='player';
+    target.troops = Math.max(10,getRandomInt(30,48));
+    log(`Combined attack successful! Conquered kingdom ${target.id}`);
+  } else {
+    log(`Combined attack failed on kingdom ${target.id}`);
+  }
+
+  attacksThisTurn++;
+  renderKingdoms();
+  if(attacksThisTurn>=2) endTurn();
 }
 
 function retreatKingdom(k){
@@ -217,7 +256,7 @@ function attackKingdom(k){
   addArrow(fromKingdom.x, fromKingdom.y, k.x, k.y, 'player');
 
   const totalAttackers = attackers.reduce((sum, a)=>sum+a.troops, 0);
-  const successChance = (totalAttackers / (totalAttackers + k.troops)) * Math.random(); // randomize
+  const successChance = (totalAttackers / (totalAttackers + k.troops)) * Math.random();
   if(Math.random() < successChance){
     k.owner='player';
     k.troops = Math.max(10,getRandomInt(30,48));
@@ -267,7 +306,6 @@ function endTurn(){
 
 resetButton.onclick = ()=>initializeGame();
 
-// Main loop to redraw arrows continuously
 function gameLoop(){
   drawArrows();
   requestAnimationFrame(gameLoop);
