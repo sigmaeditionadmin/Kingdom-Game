@@ -64,6 +64,8 @@ button:hover {
     border: 1px solid #333;
     margin-bottom: 15px;
     flex-shrink: 0;
+    overflow-y: auto;
+    max-height: 180px;
 }
 
 #log {
@@ -99,6 +101,12 @@ button:hover {
     <label>Tanks to Send</label>
     <input type="number" id="tankSend" value="500">
 
+    <label>Planes to Send</label>
+    <input type="number" id="planeSend" value="200">
+
+    <label>Ships to Send</label>
+    <input type="number" id="shipSend" value="50">
+
     <button onclick="launchAttack()">Launch Attack</button>
 
     <h3>📊 Global Stats</h3>
@@ -112,22 +120,19 @@ button:hover {
 
 <script>
 let map = L.map('map').setView([20,0], 2);
-
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 let countries = {
-    "United States of America": { owner: "player", infantry: 130000, tanks: 6000 },
-    "Russia": { owner: "ai", infantry: 115000, tanks: 5000 },
-    "China": { owner: "ai", infantry: 200000, tanks: 5500 },
-    "Iran": { owner: "ai", infantry: 57000, tanks: 1600 },
-    "North Korea": { owner: "ai", infantry: 120000, tanks: 4000 }
+    "United States of America": { owner: "player", infantry: 130000, tanks: 6000, planes: 800, ships: 200 },
+    "Russia": { owner: "ai", infantry: 115000, tanks: 5000, planes: 700, ships: 150 },
+    "China": { owner: "ai", infantry: 200000, tanks: 5500, planes: 900, ships: 180 },
+    "Iran": { owner: "ai", infantry: 57000, tanks: 1600, planes: 200, ships: 50 },
+    "North Korea": { owner: "ai", infantry: 120000, tanks: 4000, planes: 300, ships: 30 }
 };
 
 let geoLayer;
 
-function getColor(owner) {
-    return owner === "player" ? "green" : "red";
-}
+function getColor(owner) { return owner === "player" ? "green" : "red"; }
 
 function log(msg) {
     let box = document.getElementById("log");
@@ -137,21 +142,13 @@ function log(msg) {
 
 function style(feature) {
     let name = feature.properties.name_en || feature.properties.name;
-
     if (countries[name]) {
-        return {
-            fillColor: getColor(countries[name].owner),
-            weight: 1,
-            color: "black",
-            fillOpacity: 0.6
-        };
+        return { fillColor: getColor(countries[name].owner), weight: 1, color: "black", fillOpacity: 0.6 };
     }
     return { fillOpacity: 0 };
 }
 
-function refreshMap() {
-    geoLayer.setStyle(style);
-}
+function refreshMap() { if (geoLayer) geoLayer.setStyle(style); }
 
 fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json")
 .then(res => res.json())
@@ -160,9 +157,7 @@ fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.g
         style: style,
         onEachFeature: function(feature, layer) {
             let name = feature.properties.name_en || feature.properties.name;
-            if (countries[name]) {
-                layer.bindPopup(name);
-            }
+            if (countries[name]) { layer.bindPopup(name); }
         }
     }).addTo(map);
 });
@@ -170,41 +165,33 @@ fetch("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.g
 function populateDropdowns() {
     let attackerSel = document.getElementById("attackerSelect");
     let targetSel = document.getElementById("targetSelect");
-
     attackerSel.innerHTML = "";
     targetSel.innerHTML = "";
-
     for (let name in countries) {
-        if (countries[name].owner === "player") {
-            attackerSel.innerHTML += `<option value="${name}">${name}</option>`;
-        } else {
-            targetSel.innerHTML += `<option value="${name}">${name}</option>`;
-        }
+        if (countries[name].owner === "player") attackerSel.innerHTML += `<option value="${name}">${name}</option>`;
+        else targetSel.innerHTML += `<option value="${name}">${name}</option>`;
     }
 }
 
 function updateStats() {
-    let yourCountries = 0;
-    let yourInfantry = 0;
-    let yourTanks = 0;
-    let aiCountries = 0;
-
+    let yourCountries = 0, yourInfantry = 0, yourTanks = 0, yourPlanes = 0, yourShips = 0, aiCountries = 0;
     for (let name in countries) {
-        if (countries[name].owner === "player") {
+        let c = countries[name];
+        if (c.owner === "player") {
             yourCountries++;
-            yourInfantry += countries[name].infantry;
-            yourTanks += countries[name].tanks;
-        } else {
-            aiCountries++;
-        }
+            yourInfantry += c.infantry;
+            yourTanks += c.tanks;
+            yourPlanes += c.planes;
+            yourShips += c.ships;
+        } else aiCountries++;
     }
-
-    let totalPower = yourInfantry + yourTanks * 3;
-
+    let totalPower = yourInfantry + yourTanks*3 + yourPlanes*5 + yourShips*4;
     document.getElementById("statsPanel").innerHTML = `
         <b>Your Countries:</b> ${yourCountries}<br>
         <b>Your Infantry:</b> ${yourInfantry.toLocaleString()}<br>
         <b>Your Tanks:</b> ${yourTanks.toLocaleString()}<br>
+        <b>Your Planes:</b> ${yourPlanes.toLocaleString()}<br>
+        <b>Your Ships:</b> ${yourShips.toLocaleString()}<br>
         <b>Total Power:</b> ${totalPower.toLocaleString()}<br>
         <b>AI Countries Left:</b> ${aiCountries}
     `;
@@ -215,32 +202,37 @@ function launchAttack() {
     let targetName = document.getElementById("targetSelect").value;
     let inf = parseInt(document.getElementById("infantrySend").value);
     let tanks = parseInt(document.getElementById("tankSend").value);
+    let planes = parseInt(document.getElementById("planeSend").value);
+    let ships = parseInt(document.getElementById("shipSend").value);
 
     let attacker = countries[attackerName];
     let defender = countries[targetName];
-
     if (!attacker || !defender) return;
 
-    if (inf > attacker.infantry || tanks > attacker.tanks) {
+    if (inf > attacker.infantry || tanks > attacker.tanks || planes > attacker.planes || ships > attacker.ships) {
         log("Not enough troops!");
         return;
     }
 
-    attacker.infantry -= inf;
-    attacker.tanks -= tanks;
+    attacker.infantry -= inf; attacker.tanks -= tanks; attacker.planes -= planes; attacker.ships -= ships;
 
-    let attackPower = inf + tanks * 3 + Math.random() * 50000;
-    let defendPower = defender.infantry + defender.tanks * 3 + Math.random() * 50000;
+    let attackPower = inf + tanks*3 + planes*5 + ships*4 + Math.random()*50000;
+    let defendPower = defender.infantry + defender.tanks*3 + defender.planes*5 + defender.ships*4 + Math.random()*50000;
 
     if (attackPower > defendPower) {
         log(attackerName + " captured " + targetName);
         defender.owner = "player";
-        defender.infantry = Math.floor(inf / 2);
-        defender.tanks = Math.floor(tanks / 2);
+        defender.infantry = Math.floor(inf/2);
+        defender.tanks = Math.floor(tanks/2);
+        defender.planes = Math.floor(planes/2);
+        defender.ships = Math.floor(ships/2);
     } else {
         log(attackerName + " failed attacking " + targetName);
-        defender.infantry -= Math.floor(inf / 3);
-        if (defender.infantry < 0) defender.infantry = 0;
+        defender.infantry -= Math.floor(inf/3);
+        defender.tanks -= Math.floor(tanks/3);
+        defender.planes -= Math.floor(planes/3);
+        defender.ships -= Math.floor(ships/3);
+        for (let key of ["infantry","tanks","planes","ships"]) if (defender[key]<0) defender[key]=0;
     }
 
     populateDropdowns();
