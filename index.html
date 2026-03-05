@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>3D Plane Simulator — Real Model!</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Plane Simulator</title>
 <style>
   body { margin: 0; overflow: hidden; background: #87CEEB; }
   #hud {
@@ -19,16 +19,18 @@
 </style>
 </head>
 <body>
-<div id="hud">Speed: 0 | Altitude: 0</div>
+<div id="hud">Loading aircraft...</div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/examples/js/loaders/GLTFLoader.js"></script>
 
 <script>
 let scene, camera, renderer;
-let planeModel, planeVelocity = 0;
+let planeModel = null;            // Will hold our GLTF plane
+let planeVelocity = 0;
 let planePitch = 0, planeRoll = 0;
 let keys = {};
+let hud = document.getElementById('hud');
 let clock = new THREE.Clock();
 
 init();
@@ -41,18 +43,20 @@ function init() {
   // Camera
   camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 
+  // Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
+  // Lights
   const ambient = new THREE.AmbientLight(0xffffff, 0.6);
   scene.add(ambient);
-  const direct = new THREE.DirectionalLight(0xffffff, 0.6);
-  direct.position.set(5,10,7);
-  scene.add(direct);
+  const directional = new THREE.DirectionalLight(0xffffff, 0.6);
+  directional.position.set(5,10,7);
+  scene.add(directional);
 
-  // Ground
-  const groundGeo = new THREE.PlaneGeometry(500, 500, 10, 10);
+  // Ground so you can see movement
+  const groundGeo = new THREE.PlaneGeometry(500, 500);
   const groundMat = new THREE.MeshStandardMaterial({color: 0x228B22});
   const ground = new THREE.Mesh(groundGeo, groundMat);
   ground.rotation.x = -Math.PI/2;
@@ -60,12 +64,23 @@ function init() {
 
   // Load real airplane model
   const loader = new THREE.GLTFLoader();
-  const modelURL = 'https://cdn.filer.dev/3d-model/2243156-airplane-n.glb'; // free plane model :contentReference[oaicite:1]{index=1}
-  loader.load(modelURL, (gltf) => {
-    planeModel = gltf.scene;
-    planeModel.scale.set(1.5,1.5,1.5);
-    scene.add(planeModel);
-  });
+  const modelURL = 'https://cdn.filer.dev/3d-model/2243156-airplane-n.glb'; 
+
+  loader.load(
+    modelURL,
+    (gltf) => {
+      planeModel = gltf.scene;
+      planeModel.scale.set(1.5,1.5,1.5);
+      scene.add(planeModel);
+      hud.innerText = 'Speed: 0 | Altitude: 0';
+      planeModel.position.set(0,5,0);  // start above ground
+    },
+    undefined,
+    (error) => {
+      console.error('Model load error', error);
+      hud.innerText = 'Failed to load plane model';
+    }
+  );
 
   // Controls
   window.addEventListener('keydown', (e) => keys[e.code] = true);
@@ -82,28 +97,28 @@ function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
 
-  handleControls(delta);
-  updateCamera();
-  updateHUD();
+  if (planeModel) {
+    handleControls(delta);
+    updateCamera();
+    updateHUD();
+  }
 
   renderer.render(scene, camera);
 }
 
 function handleControls(delta) {
-  if (!planeModel) return;
-
   const throttleSpeed = 20;
   const pitchSpeed = Math.PI;
   const rollSpeed = Math.PI;
 
-  if(keys['KeyW']) planeVelocity += throttleSpeed * delta;
-  if(keys['KeyS']) planeVelocity -= throttleSpeed * delta;
+  if (keys['KeyW']) planeVelocity += throttleSpeed * delta;
+  if (keys['KeyS']) planeVelocity -= throttleSpeed * delta;
   planeVelocity = Math.max(0, planeVelocity);
 
-  if(keys['ArrowUp']) planePitch += pitchSpeed * delta;
-  if(keys['ArrowDown']) planePitch -= pitchSpeed * delta;
-  if(keys['KeyA']) planeRoll += rollSpeed * delta;
-  if(keys['KeyD']) planeRoll -= rollSpeed * delta;
+  if (keys['ArrowUp']) planePitch += pitchSpeed * delta;
+  if (keys['ArrowDown']) planePitch -= pitchSpeed * delta;
+  if (keys['KeyA']) planeRoll += rollSpeed * delta;
+  if (keys['KeyD']) planeRoll -= rollSpeed * delta;
 
   planeModel.rotation.z = planeRoll;
   planeModel.rotation.x = planePitch;
@@ -113,17 +128,14 @@ function handleControls(delta) {
 }
 
 function updateCamera() {
-  if (!planeModel) return;
-
-  const offset = new THREE.Vector3(0,1,3).applyQuaternion(planeModel.quaternion);
+  const offset = new THREE.Vector3(0,1.0,3).applyQuaternion(planeModel.quaternion);
   camera.position.copy(planeModel.position).add(offset);
   const lookAt = new THREE.Vector3(0,0,-10).applyQuaternion(planeModel.quaternion).add(planeModel.position);
   camera.lookAt(lookAt);
 }
 
 function updateHUD() {
-  const hud = document.getElementById('hud');
-  hud.innerText = `Speed: ${planeVelocity.toFixed(1)} | Altitude: ${planeModel ? planeModel.position.y.toFixed(1) : 0}`;
+  hud.innerText = `Speed: ${planeVelocity.toFixed(1)} | Alt: ${planeModel.position.y.toFixed(1)}`;
 }
 </script>
 </body>
