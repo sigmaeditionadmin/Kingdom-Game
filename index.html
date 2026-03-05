@@ -2,270 +2,133 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Aircraft Fighter Simulator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>First-Person Aircraft Shooter</title>
 <style>
-body {
-  margin: 0;
-  overflow: hidden;
-  background: linear-gradient(to top, #87CEEB, #ffffff);
-  font-family: Arial;
-}
-canvas {
-  display: block;
-}
-#ui {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  color: white;
-  font-weight: bold;
-}
-#scoreboard {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  color: white;
-  font-weight: bold;
-  text-align: right;
-}
+  body { margin:0; overflow:hidden; background:#87ceeb; }
+  canvas { display:block; background:#87ceeb; }
+  #hud {
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    pointer-events:none; color:white; font-family:sans-serif;
+  }
+  #crosshair {
+    position:absolute; top:50%; left:50%;
+    width:20px; height:20px; margin:-10px 0 0 -10px;
+    border:2px solid white; border-radius:50%;
+  }
+  #healthBarContainer {
+    position:absolute; top:10px; left:10px; width:200px; height:20px; border:2px solid white;
+  }
+  #healthBar { width:100%; height:100%; background:red; }
 </style>
 </head>
 <body>
 
 <canvas id="gameCanvas"></canvas>
-<div id="ui">Health: <span id="health">100</span></div>
-<div id="scoreboard">Score: <span id="score">0</span></div>
+<div id="hud">
+  <div id="crosshair"></div>
+  <div id="healthBarContainer"><div id="healthBar"></div></div>
+</div>
 
 <script>
+// ========== Canvas Setup ==========
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let keys = {};
-let score = 0;
+window.addEventListener('resize',()=> {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
 
-document.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-document.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+// ========== Player ==========
+const player = {
+  x: canvas.width/2,
+  y: canvas.height - 100,
+  speed: 5,
+  health: 100,
+  bullets: []
+};
 
-// Game objects
-class Plane {
-  constructor(x, y, color='blue', isPlayer=false){
-    this.x = x;
-    this.y = y;
-    this.width = 40;
-    this.height = 40;
-    this.angle = 0;
-    this.speed = 0;
-    this.maxSpeed = 5;
-    this.acceleration = 0.2;
-    this.rotationSpeed = 3; // degrees
-    this.color = color;
-    this.isPlayer = isPlayer;
-    this.health = 100;
-    this.reload = 0; // bullet cooldown
-  }
-  draw(){
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(this.angle * Math.PI / 180);
-    ctx.fillStyle = this.color;
-    ctx.beginPath();
-    ctx.moveTo(20,0);
-    ctx.lineTo(-20,15);
-    ctx.lineTo(-15,0);
-    ctx.lineTo(-20,-15);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-    // Health bar
-    ctx.fillStyle = 'red';
-    ctx.fillRect(this.x-20, this.y-30, 40*(this.health/100), 5);
-    ctx.strokeStyle = 'black';
-    ctx.strokeRect(this.x-20, this.y-30, 40, 5);
-  }
-  update(){
-    if(this.isPlayer){
-      // Controls: W/S accelerate, A/D rotate
-      if(keys['w']) this.speed += this.acceleration;
-      if(keys['s']) this.speed -= this.acceleration;
-      if(keys['a']) this.angle -= this.rotationSpeed;
-      if(keys['d']) this.angle += this.rotationSpeed;
-      if(this.speed > this.maxSpeed) this.speed = this.maxSpeed;
-      if(this.speed < -this.maxSpeed/2) this.speed = -this.maxSpeed/2;
-      // Move
-      this.x += Math.cos(this.angle * Math.PI / 180) * this.speed;
-      this.y += Math.sin(this.angle * Math.PI / 180) * this.speed;
-      // Boundaries
-      if(this.x<0) this.x=0;
-      if(this.y<0) this.y=0;
-      if(this.x>canvas.width) this.x=canvas.width;
-      if(this.y>canvas.height) this.y=canvas.height;
-      // Shooting
-      if(keys[' ']) this.shoot();
-    } else {
-      this.aiBehavior();
-    }
-    if(this.reload>0) this.reload--;
-  }
-  shoot(){
-    if(this.reload === 0){
-      bullets.push(new Bullet(this.x, this.y, this.angle, this.isPlayer));
-      this.reload = 15; // cooldown
-    }
-  }
-  aiBehavior(){
-    // Simple AI: follow player and shoot
-    let dx = player.x - this.x;
-    let dy = player.y - this.y;
-    let targetAngle = Math.atan2(dy, dx) * 180 / Math.PI;
-    let diff = (targetAngle - this.angle + 360) % 360;
-    if(diff > 180) this.angle -= this.rotationSpeed;
-    else this.angle += this.rotationSpeed;
-    if(this.angle>360) this.angle-=360;
-    if(this.angle<0) this.angle+=360;
-    // Move forward
-    this.speed = this.maxSpeed*0.7;
-    this.x += Math.cos(this.angle * Math.PI / 180) * this.speed;
-    this.y += Math.sin(this.angle * Math.PI / 180) * this.speed;
-    // Shoot occasionally
-    if(Math.random()<0.02) this.shoot();
-  }
+// ========== Input ==========
+const keys = {};
+document.addEventListener('keydown', e=>keys[e.code]=true);
+document.addEventListener('keyup', e=>keys[e.code]=false);
+
+// ========== Enemies ==========
+const enemies = [];
+function spawnEnemy() {
+  const enemy = {
+    x: Math.random() * canvas.width,
+    y: -50,
+    speed: 2 + Math.random()*2,
+    size: 40
+  };
+  enemies.push(enemy);
 }
 
-class Bullet {
-  constructor(x,y,angle,isPlayer){
-    this.x = x;
-    this.y = y;
-    this.angle = angle;
-    this.speed = 10;
-    this.radius = 4;
-    this.isPlayer = isPlayer;
-  }
-  draw(){
-    ctx.fillStyle = this.isPlayer?'yellow':'red';
-    ctx.beginPath();
-    ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
-    ctx.fill();
-  }
-  update(){
-    this.x += Math.cos(this.angle * Math.PI / 180) * this.speed;
-    this.y += Math.sin(this.angle * Math.PI / 180) * this.speed;
-  }
+// ========== Bullets ==========
+function shoot() {
+  player.bullets.push({x:player.x, y:player.y-20, speed:10});
 }
 
-class PowerUp {
-  constructor(x,y,type){
-    this.x=x;
-    this.y=y;
-    this.type=type;
-    this.radius=15;
-  }
-  draw(){
-    ctx.fillStyle = this.type==='health'?'green':'orange';
-    ctx.beginPath();
-    ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);
-    ctx.fill();
-  }
-}
-
-// Player
-let player = new Plane(canvas.width/2, canvas.height-100, 'blue', true);
-
-// Enemies
-let enemies = [];
-for(let i=0;i<5;i++){
-  enemies.push(new Plane(Math.random()*canvas.width, Math.random()*canvas.height/2, 'red'));
-}
-
-// Bullets
-let bullets = [];
-
-// PowerUps
-let powerUps = [];
-function spawnPowerUp(){
-  let type = Math.random()<0.5?'health':'ammo';
-  powerUps.push(new PowerUp(Math.random()*canvas.width, Math.random()*canvas.height, type));
-}
-setInterval(spawnPowerUp,15000);
-
-// Game loop
-function loop(){
+// ========== Game Loop ==========
+let lastSpawn = 0;
+function gameLoop(timestamp){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // Draw clouds
-  for(let i=0;i<50;i++){
-    ctx.fillStyle='rgba(255,255,255,0.2)';
-    ctx.beginPath();
-    ctx.arc((i*100 + Date.now()/50)%canvas.width, 50 + ((i*30)%canvas.height/3), 30, 0, Math.PI*2);
-    ctx.fill();
-  }
+  // Player Movement
+  if(keys['ArrowLeft'] && player.x>0) player.x -= player.speed;
+  if(keys['ArrowRight'] && player.x<canvas.width) player.x += player.speed;
+  if(keys['ArrowUp'] && player.y>0) player.y -= player.speed;
+  if(keys['ArrowDown'] && player.y<canvas.height) player.y += player.speed;
+  if(keys['Space']) shoot();
 
-  // Update and draw player
-  player.update();
-  player.draw();
+  // Draw cockpit view (simple rectangle for now)
+  ctx.fillStyle = '#444';
+  ctx.fillRect(0, canvas.height-100, canvas.width, 100); // cockpit floor
 
-  // Update and draw enemies
-  for(let e of enemies){
-    e.update();
-    e.draw();
-  }
+  // Bullets
+  ctx.fillStyle = 'yellow';
+  player.bullets.forEach((b, i)=>{
+    b.y -= b.speed;
+    ctx.fillRect(b.x-2, b.y-10, 4,10);
+    if(b.y < 0) player.bullets.splice(i,1);
+  });
 
-  // Update bullets
-  for(let i=bullets.length-1;i>=0;i--){
-    let b = bullets[i];
-    b.update();
-    b.draw();
-    // Remove if offscreen
-    if(b.x<0 || b.y<0 || b.x>canvas.width || b.y>canvas.height) bullets.splice(i,1);
+  // Spawn Enemies
+  if(timestamp - lastSpawn > 1000) { spawnEnemy(); lastSpawn = timestamp; }
 
-    // Check collision with enemies
-    if(b.isPlayer){
-      for(let j=enemies.length-1;j>=0;j--){
-        let e = enemies[j];
-        let dx = b.x - e.x;
-        let dy = b.y - e.y;
-        if(Math.sqrt(dx*dx+dy*dy)<e.width/2){
-          e.health -= 20;
-          bullets.splice(i,1);
-          if(e.health<=0){
-            enemies.splice(j,1);
-            score+=10;
-          }
-          break;
-        }
+  // Move & Draw Enemies
+  ctx.fillStyle='red';
+  enemies.forEach((e, i)=>{
+    e.y += e.speed;
+    ctx.fillRect(e.x-e.size/2, e.y-e.size/2, e.size, e.size);
+
+    // Collision with bullets
+    player.bullets.forEach((b,j)=>{
+      if(b.x > e.x-e.size/2 && b.x < e.x+e.size/2 &&
+         b.y > e.y-e.size/2 && b.y < e.y+e.size/2){
+        enemies.splice(i,1);
+        player.bullets.splice(j,1);
       }
-    } else {
-      // Enemy bullets hit player
-      let dx = b.x - player.x;
-      let dy = b.y - player.y;
-      if(Math.sqrt(dx*dx+dy*dy)<player.width/2){
-        player.health -= 10;
-        bullets.splice(i,1);
-      }
+    });
+
+    // Enemy reaches player
+    if(e.y+e.size/2 > canvas.height-100){
+      player.health -= 10;
+      enemies.splice(i,1);
     }
-  }
+  });
 
-  // Draw power-ups
-  for(let i=powerUps.length-1;i>=0;i--){
-    let p = powerUps[i];
-    p.draw();
-    let dx = p.x - player.x;
-    let dy = p.y - player.y;
-    if(Math.sqrt(dx*dx+dy*dy)<player.width/2 + p.radius){
-      if(p.type==='health') player.health=Math.min(player.health+30,100);
-      powerUps.splice(i,1);
-    }
-  }
+  // Update HUD
+  document.getElementById('healthBar').style.width = player.health + '%';
 
-  // Update UI
-  document.getElementById('health').innerText = player.health;
-  document.getElementById('score').innerText = score;
-
-  requestAnimationFrame(loop);
+  requestAnimationFrame(gameLoop);
 }
 
-loop();
+requestAnimationFrame(gameLoop);
 </script>
 
 </body>
