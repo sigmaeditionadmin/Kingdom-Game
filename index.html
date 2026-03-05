@@ -230,7 +230,6 @@ function animateAttack(type,amount,origin,target){
       clearInterval(move);
       setTimeout(()=>marker.remove(),2000);
 
-      // Mini impact effect
       let impact=L.circle(target,{radius:50000,color:"orange"}).addTo(map);
       setTimeout(()=>map.removeLayer(impact),500);
 
@@ -239,14 +238,43 @@ function animateAttack(type,amount,origin,target){
   },40);
 }
 
-// Ship routes (around land)
+// Ship routes (all country pairs)
 const shipRoutes = {
+  "USA>Brazil":[ [38,-97], [0,-70], [-10,-55] ],
   "USA>UK":[ [38,-97], [50,-40], [54,-2] ],
+  "USA>India":[ [38,-97], [30,-40], [15,50], [21,78] ],
+  "USA>Japan":[ [38,-97], [40,160], [36,138] ],
+  "USA>Australia":[ [38,-97], [0,160], [-25,133] ],
+
+  "Brazil>USA":[ [-10,-55], [0,-40], [38,-97] ],
   "Brazil>UK":[ [-10,-55], [20,-40], [54,-2] ],
+  "Brazil>India":[ [-10,-55], [0,10], [21,78] ],
+  "Brazil>Japan":[ [-10,-55], [10,160], [36,138] ],
+  "Brazil>Australia":[ [-10,-55], [-10,150], [-25,133] ],
+
+  "UK>USA":[ [54,-2], [50,-40], [38,-97] ],
+  "UK>Brazil":[ [54,-2], [20,-40], [-10,-55] ],
+  "UK>India":[ [54,-2], [40,40], [21,78] ],
+  "UK>Japan":[ [54,-2], [40,160], [36,138] ],
+  "UK>Australia":[ [54,-2], [0,150], [-25,133] ],
+
+  "India>USA":[ [21,78], [15,50], [38,-97] ],
+  "India>Brazil":[ [21,78], [0,10], [-10,-55] ],
+  "India>UK":[ [21,78], [40,40], [54,-2] ],
+  "India>Japan":[ [21,78], [30,100], [36,138] ],
+  "India>Australia":[ [21,78], [0,120], [-25,133] ],
+
+  "Japan>USA":[ [36,138], [40,160], [38,-97] ],
+  "Japan>Brazil":[ [36,138], [10,160], [-10,-55] ],
+  "Japan>UK":[ [36,138], [40,160], [54,-2] ],
+  "Japan>India":[ [36,138], [30,100], [21,78] ],
+  "Japan>Australia":[ [36,138], [0,150], [-25,133] ],
+
+  "Australia>USA":[ [-25,133], [0,160], [38,-97] ],
+  "Australia>Brazil":[ [-25,133], [-10,150], [-10,-55] ],
+  "Australia>UK":[ [-25,133], [0,150], [54,-2] ],
   "Australia>India":[ [-25,133], [-5,100], [21,78] ],
-  "USA>Japan":[ [38,-97],[40,160],[36,138] ],
-  "India>Australia":[ [21,78],[0,120],[-25,133] ]
-  // add more routes as needed
+  "Australia>Japan":[ [-25,133], [0,150], [36,138] ]
 };
 
 // Ship animation
@@ -268,7 +296,6 @@ function animateShip(amount, origin, target){
   function moveSegment(seg){
     if(seg>=route.length-1){
       setTimeout(()=>marker.remove(),2000);
-      // Mini impact effect
       let impact=L.circle(route[route.length-1],{radius:50000,color:"orange"}).addTo(map);
       setTimeout(()=>map.removeLayer(impact),500);
 
