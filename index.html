@@ -9,68 +9,68 @@
 <style>
 
 body{
-margin:0;
-display:flex;
-height:100vh;
-font-family:Arial;
-overflow:hidden;
+  margin:0;
+  display:flex;
+  height:100vh;
+  font-family:Arial;
+  overflow:hidden;
 }
 
 #map{
-flex:1;
+  flex:1;
 }
 
 #panel{
-width:320px;
-background:#111;
-color:white;
-display:flex;
-flex-direction:column;
+  width:320px;
+  background:#111;
+  color:white;
+  display:flex;
+  flex-direction:column;
 }
 
 #tabs{
-display:flex;
-background:#222;
+  display:flex;
+  background:#222;
 }
 
 .tab{
-flex:1;
-padding:10px;
-text-align:center;
-cursor:pointer;
-border-right:1px solid #333;
+  flex:1;
+  padding:10px;
+  text-align:center;
+  cursor:pointer;
+  border-right:1px solid #333;
 }
 
 .tab.active{
-background:#444;
+  background:#444;
 }
 
 #panelContent{
-flex:1;
-overflow-y:auto;
-padding:10px;
+  flex:1;
+  overflow-y:auto;
+  padding:10px;
 }
 
 .section{
-margin-bottom:20px;
+  margin-bottom:20px;
 }
 
 select,input{
-width:100%;
-margin-top:5px;
+  width:100%;
+  margin-top:5px;
 }
 
 button{
-margin-top:6px;
-width:100%;
+  margin-top:6px;
+  width:100%;
 }
 
 #log{
-background:#000;
-padding:5px;
-height:150px;
-overflow-y:auto;
-font-size:12px;
+  background:#000;
+  padding:5px;
+  height:150px;
+  overflow-y:auto;
+  font-size:12px;
 }
 
 </style>
@@ -82,58 +82,50 @@ font-size:12px;
 
 <div id="panel">
 
-<div id="tabs">
-<div class="tab active" onclick="openTab('units',event)">Units</div>
-<div class="tab" onclick="openTab('missiles',event)">Missiles</div>
-<div class="tab" onclick="openTab('nukes',event)">Nukes</div>
-</div>
+  <div id="tabs">
+    <div class="tab active" onclick="openTab('units',event)">Units</div>
+    <div class="tab" onclick="openTab('missiles',event)">Missiles</div>
+    <div class="tab" onclick="openTab('nukes',event)">Nukes</div>
+  </div>
 
-<div id="panelContent">
+  <div id="panelContent">
 
-<div class="section">
+    <div class="section">
+      <h3>Origin</h3>
+      <select id="originSelect"></select>
 
-<h3>Origin</h3>
-<select id="originSelect"></select>
+      <h3>Target</h3>
+      <select id="targetSelect"></select>
+    </div>
 
-<h3>Target</h3>
-<select id="targetSelect"></select>
+    <div id="unitsTab">
+      <h3>Troops</h3>
+      <input id="troopAmount" type="number" value="10">
+      <button onclick="sendUnits('troops')">Send Troops</button>
 
-</div>
+      <h3>Planes ✈️</h3>
+      <input id="planeAmount" type="number" value="5">
+      <button onclick="sendUnits('planes')">Send Planes</button>
 
-<div id="unitsTab">
+      <h3>Ships 🚢</h3>
+      <input id="shipAmount" type="number" value="5">
+      <button onclick="sendUnits('ships')">Send Ships</button>
+    </div>
 
-<h3>Troops</h3>
-<input id="troopAmount" type="number" value="10">
-<button onclick="sendUnits('troops')">Send Troops</button>
+    <div id="missilesTab" style="display:none">
+      <h3>Missile Strike 🚀</h3>
+      <button onclick="launchMissile()">Launch Missile</button>
+    </div>
 
-<h3>Planes ✈️</h3>
-<input id="planeAmount" type="number" value="5">
-<button onclick="sendUnits('planes')">Send Planes</button>
+    <div id="nukesTab" style="display:none">
+      <h3>Nuclear Strike ☢️</h3>
+      <button onclick="launchNuke()">Launch Nuke</button>
+    </div>
 
-<h3>Ships 🚢</h3>
-<input id="shipAmount" type="number" value="5">
-<button onclick="sendUnits('ships')">Send Ships</button>
+    <h3>Battle Log</h3>
+    <div id="log"></div>
 
-</div>
-
-<div id="missilesTab" style="display:none">
-
-<h3>Missile Strike 🚀</h3>
-<button onclick="launchMissile()">Launch Missile</button>
-
-</div>
-
-<div id="nukesTab" style="display:none">
-
-<h3>Nuclear Strike ☢️</h3>
-<button onclick="launchNuke()">Launch Nuke</button>
-
-</div>
-
-<h3>Battle Log</h3>
-<div id="log"></div>
-
-</div>
+  </div>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -143,148 +135,189 @@ font-size:12px;
 const map = L.map('map').setView([20,0],2);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-maxZoom:6
+  maxZoom:6
 }).addTo(map);
 
 let log=document.getElementById("log");
 
 function addLog(text){
-log.innerHTML+="<div>"+text+"</div>";
-log.scrollTop=log.scrollHeight;
+  log.innerHTML+="<div>"+text+"</div>";
+  log.scrollTop=log.scrollHeight;
 }
 
+// Countries
 const countries={
-USA:[38,-97],
-Brazil:[-10,-55],
-UK:[54,-2],
-India:[21,78],
-Japan:[36,138],
-Australia:[-25,133]
+  USA:[38,-97],
+  Brazil:[-10,-55],
+  UK:[54,-2],
+  India:[21,78],
+  Japan:[36,138],
+  Australia:[-25,133]
 };
 
 const originSelect=document.getElementById("originSelect");
 const targetSelect=document.getElementById("targetSelect");
 
 for(let c in countries){
+  let o=document.createElement("option");
+  o.value=c;
+  o.text=c;
+  originSelect.appendChild(o);
 
-let o=document.createElement("option");
-o.value=c;
-o.text=c;
-originSelect.appendChild(o);
-
-let t=document.createElement("option");
-t.value=c;
-t.text=c;
-targetSelect.appendChild(t);
-
+  let t=document.createElement("option");
+  t.value=c;
+  t.text=c;
+  targetSelect.appendChild(t);
 }
 
+// Disable selecting origin as target
+originSelect.addEventListener('change',()=>{
+  for(let i=0;i<targetSelect.options.length;i++){
+    targetSelect.options[i].disabled = (targetSelect.options[i].value === originSelect.value);
+  }
+});
+
+// Tabs
 function openTab(name,event){
+  document.getElementById("unitsTab").style.display="none";
+  document.getElementById("missilesTab").style.display="none";
+  document.getElementById("nukesTab").style.display="none";
 
-document.getElementById("unitsTab").style.display="none";
-document.getElementById("missilesTab").style.display="none";
-document.getElementById("nukesTab").style.display="none";
+  document.getElementById(name+"Tab").style.display="block";
 
-document.getElementById(name+"Tab").style.display="block";
-
-document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-event.target.classList.add("active");
-
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  event.target.classList.add("active");
 }
 
+// Send units
 function sendUnits(type){
+  let origin=countries[originSelect.value];
+  let target=countries[targetSelect.value];
+  let amount=0;
 
-let origin=countries[originSelect.value];
-let target=countries[targetSelect.value];
+  if(type==="troops") amount=document.getElementById("troopAmount").value;
+  if(type==="planes") amount=document.getElementById("planeAmount").value;
+  if(type==="ships") amount=document.getElementById("shipAmount").value;
 
-let amount=0;
-
-if(type==="troops") amount=document.getElementById("troopAmount").value;
-if(type==="planes") amount=document.getElementById("planeAmount").value;
-if(type==="ships") amount=document.getElementById("shipAmount").value;
-
-animateAttack(type,amount,origin,target);
-
+  if(type==="ships"){
+    animateShip(amount, origin, target);
+  } else {
+    animateAttack(type, amount, origin, target);
+  }
 }
 
+// Troops & planes animation
 function animateAttack(type,amount,origin,target){
+  let icon="⚔️";
+  if(type==="planes") icon="✈️";
 
-let icon="⚔️";
+  let marker=L.marker(origin,{
+    icon:L.divIcon({html:icon,className:"",iconSize:[20,20]})
+  }).addTo(map);
 
-if(type==="planes") icon="✈️";
-if(type==="ships") icon="🚢";
+  let steps=80;
+  let i=0;
+  let latStep=(target[0]-origin[0])/steps;
+  let lngStep=(target[1]-origin[1])/steps;
 
-let marker=L.marker(origin,{
-icon:L.divIcon({
-html:icon,
-className:"",
-iconSize:[20,20]
-})
-}).addTo(map);
+  let move=setInterval(()=>{
+    i++;
+    let lat=origin[0]+latStep*i;
+    let lng=origin[1]+lngStep*i;
+    marker.setLatLng([lat,lng]);
 
-let steps=80;
-let i=0;
+    if(i>=steps){
+      clearInterval(move);
+      setTimeout(()=>marker.remove(),2000);
 
-let latStep=(target[0]-origin[0])/steps;
-let lngStep=(target[1]-origin[1])/steps;
+      // Mini impact effect
+      let impact=L.circle(target,{radius:50000,color:"orange"}).addTo(map);
+      setTimeout(()=>map.removeLayer(impact),500);
 
-let move=setInterval(()=>{
-
-i++;
-
-let lat=origin[0]+latStep*i;
-let lng=origin[1]+lngStep*i;
-
-marker.setLatLng([lat,lng]);
-
-if(i>=steps){
-
-clearInterval(move);
-marker.remove();
-
-addLog(type+" attacked "+targetSelect.value+" with "+amount);
-
+      addLog(type+" attacked "+targetSelect.value+" with "+amount);
+    }
+  },40);
 }
 
-},40);
+// Ship routes (around land)
+const shipRoutes = {
+  "USA>UK":[ [38,-97], [50,-40], [54,-2] ],
+  "Brazil>UK":[ [-10,-55], [20,-40], [54,-2] ],
+  "Australia>India":[ [-25,133], [-5,100], [21,78] ],
+  "USA>Japan":[ [38,-97],[40,160],[36,138] ],
+  "India>Australia":[ [21,78],[0,120],[-25,133] ]
+  // add more routes as needed
+};
 
+// Ship animation
+function animateShip(amount, origin, target){
+  let key = originSelect.value + ">" + targetSelect.value;
+  let route = shipRoutes[key];
+  
+  if(!route){
+    addLog("No ship route defined for "+key);
+    return;
+  }
+
+  let marker=L.marker(origin,{
+    icon:L.divIcon({html:"🚢",className:"",iconSize:[20,20]})
+  }).addTo(map);
+
+  let stepsPerSegment=40;
+
+  function moveSegment(seg){
+    if(seg>=route.length-1){
+      setTimeout(()=>marker.remove(),2000);
+      // Mini impact effect
+      let impact=L.circle(route[route.length-1],{radius:50000,color:"orange"}).addTo(map);
+      setTimeout(()=>map.removeLayer(impact),500);
+
+      addLog("Ships reached "+targetSelect.value+" with "+amount);
+      return;
+    }
+
+    let start = route[seg];
+    let end = route[seg+1];
+    let i=0;
+    let latStep=(end[0]-start[0])/stepsPerSegment;
+    let lngStep=(end[1]-start[1])/stepsPerSegment;
+
+    let interval=setInterval(()=>{
+      i++;
+      let lat=start[0]+latStep*i;
+      let lng=start[1]+lngStep*i;
+      marker.setLatLng([lat,lng]);
+      if(i>=stepsPerSegment){
+        clearInterval(interval);
+        moveSegment(seg+1);
+      }
+    },40);
+  }
+
+  moveSegment(0);
 }
 
+// Missiles
 function launchMissile(){
+  let target=countries[targetSelect.value];
+  let missile=L.marker(target,{
+    icon:L.divIcon({html:"🚀",className:"",iconSize:[20,20]})
+  }).addTo(map);
 
-let target=countries[targetSelect.value];
-
-let missile=L.marker(target,{
-icon:L.divIcon({
-html:"🚀",
-className:"",
-iconSize:[20,20]
-})
-}).addTo(map);
-
-addLog("Missile launched at "+targetSelect.value);
-
-setTimeout(()=>{
-map.removeLayer(missile);
-},2000);
-
+  addLog("Missile launched at "+targetSelect.value);
+  setTimeout(()=>map.removeLayer(missile),2000);
 }
 
+// Nukes
 function launchNuke(){
+  let target=countries[targetSelect.value];
+  let blast=L.circle(target,{
+    radius:600000,
+    color:"red"
+  }).addTo(map);
 
-let target=countries[targetSelect.value];
-
-let blast=L.circle(target,{
-radius:600000,
-color:"red"
-}).addTo(map);
-
-addLog("NUKE DETONATED on "+targetSelect.value+" ☢️");
-
-setTimeout(()=>{
-map.removeLayer(blast);
-},2000);
-
+  addLog("NUKE DETONATED on "+targetSelect.value+" ☢️");
+  setTimeout(()=>map.removeLayer(blast),2000);
 }
 
 </script>
