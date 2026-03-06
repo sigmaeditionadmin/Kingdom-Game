@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html>
 <head>
 <meta charset="UTF-8">
@@ -6,6 +7,7 @@
 
 <style>
 body{margin:0;overflow:hidden;background:#87CEEB;}
+
 #hud{
 position:absolute;
 top:10px;
@@ -47,7 +49,7 @@ camera=new THREE.PerspectiveCamera(
 75,
 window.innerWidth/window.innerHeight,
 0.1,
-1000
+2000
 )
 
 renderer=new THREE.WebGLRenderer({antialias:true})
@@ -64,7 +66,7 @@ scene.add(sun)
 createPlane()
 
 // ground
-const groundGeo=new THREE.PlaneGeometry(2000,2000)
+const groundGeo=new THREE.PlaneGeometry(4000,4000)
 const groundMat=new THREE.MeshStandardMaterial({color:0x2f7d32})
 const ground=new THREE.Mesh(groundGeo,groundMat)
 ground.rotation.x=-Math.PI/2
@@ -173,12 +175,13 @@ plane.position.add(forward.multiplyScalar(velocity*delta))
 
 function updateCamera(){
 
-let offset=new THREE.Vector3(-12,4,0)
+// farther behind plane so you see it
+let offset=new THREE.Vector3(-20,8,0)
 offset.applyEuler(plane.rotation)
 
 camera.position.copy(plane.position).add(offset)
 
-let look=new THREE.Vector3(5,0,0)
+let look=new THREE.Vector3(15,0,0)
 look.applyEuler(plane.rotation)
 look.add(plane.position)
 
@@ -194,5 +197,6 @@ document.getElementById("hud").innerText=
 }
 
 </script>
+
 </body>
 </html>
